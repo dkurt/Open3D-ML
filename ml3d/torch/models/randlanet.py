@@ -365,8 +365,8 @@ class RandLANet(BaseModel):
 
         extended_idx = neighbor_idx.unsqueeze(1).expand(B, d, N, K)
         extended_coords = pc.transpose(-2, -1).unsqueeze(-1).expand(B, d, N, K)
-        features = torch.gather(extended_coords, 2, extended_idx)
-
+        # features = torch.gather(extended_coords, 2, extended_idx)
+        features = extended_coords + extended_idx
         return features
 
     def forward_att_pooling(self, feature_set, name):

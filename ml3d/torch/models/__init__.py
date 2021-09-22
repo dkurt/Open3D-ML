@@ -9,5 +9,5 @@ from .point_transformer import PointTransformer
 
 __all__ = [
     'RandLANet', 'KPFCNN', 'PointPillars', 'PointRCNN', 'SparseConvUnet',
-    'PointTransformer'
+    'PointTransformer', 'OpenVINOModel'
 ]
