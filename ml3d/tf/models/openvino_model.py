@@ -23,26 +23,20 @@ class OpenVINOModel:
         # Dump a model in SavedModel format
         self.base_model.save('model')
 
-        # Load model to read input signatures
-        # TODO: Can we get them from the base model?
-        loaded = tf.saved_model.load('model')
-        infer = loaded.signatures['serving_default']
+        # Read input signatures (names, shapes)
+        signatures = self.base_model._get_save_spec()
 
         self.input_names = []
         self.input_ids = []
         input_shapes = []
-        for inp in infer.inputs:
-            if inp.dtype == 'resource':
-                continue
-
-            name = inp.name[:inp.name.find(':')]
-            inp_idx = int(name[name.find('_') + 1:]) - 1
+        for inp in signatures:
+            inp_idx = int(inp.name[inp.name.find('_') + 1:]) - 1
             shape = list(inputs[inp_idx].shape)
 
             if np.prod(shape) == 0:
                 continue
 
-            self.input_names.append(name)
+            self.input_names.append(inp.name)
             self.input_ids.append(inp_idx)
             input_shapes.append(str(shape))
 
