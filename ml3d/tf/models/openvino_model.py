@@ -4,15 +4,16 @@ import subprocess
 
 import numpy as np
 
-import tensorflow as tf
+from .base_model import BaseModel
 
 import mo_tf
 from openvino.inference_engine import IECore
 
 
-class OpenVINOModel:
+class OpenVINOModel(BaseModel):
 
     def __init__(self, base_model):
+        super().__init__()
         self.ie = IECore()
         self.exec_net = None
         self.base_model = base_model
@@ -20,11 +21,16 @@ class OpenVINOModel:
         self.input_ids = None
 
     def _read_tf_model(self, inputs):
-        # Dump a model in SavedModel format
-        self.base_model.save('model')
-
         # Read input signatures (names, shapes)
         signatures = self.base_model._get_save_spec()
+
+        if signatures is None:
+            # Do inference once to fit the signatures
+            self.base_model(inputs)
+            signatures = self.base_model._get_save_spec()
+
+        # Dump a model in SavedModel format
+        self.base_model.save('model')
 
         self.input_names = []
         self.input_ids = []
@@ -56,7 +62,10 @@ class OpenVINOModel:
 
         self.exec_net = self.ie.load_network('saved_model.xml', 'CPU')
 
-    def __call__(self, inputs):
+    def __call__(self, inputs, training=False):
+        if training:
+            raise Exception('Only testing inference supported')
+
         if self.exec_net is None:
             self._read_tf_model(inputs)
 
@@ -67,3 +76,25 @@ class OpenVINOModel:
         output = self.exec_net.infer(tensors)
         output = next(iter(output.values()))
         return output
+
+    def inference_begin(self, *args):
+        return self.base_model.inference_begin(*args)
+
+    def inference_preprocess(self, *args):
+        return self.base_model.inference_preprocess(*args)
+
+    def inference_end(self, *args):
+        return self.base_model.inference_end(*args)
+
+    @property
+    def inference_result(self):
+        return self.base_model.inference_result
+
+    def get_optimizer(self, *args):
+        raise NotImplemented('Method not implemented')
+
+    def preprocess(self, *args):
+        raise NotImplemented('Method not implemented')
+
+    def transform(self, *args):
+        raise NotImplemented('Method not implemented')

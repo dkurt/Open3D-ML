@@ -1150,7 +1150,11 @@ class KPConv(nn.Module):
         # Apply network weights [n_kpoints, n_points, out_fdim]
         weighted_features = weighted_features.permute((1, 0, 2))
 
-        kernel_outputs = torch.matmul(weighted_features, self.weights)
+        if self.in_channels == 1:
+            # This is a workaround for OpenVINO backend
+            kernel_outputs = weighted_features * self.weights.expand(self.K, 5000, self.out_channels)
+        else:
+            kernel_outputs = torch.matmul(weighted_features, self.weights)
 
         # Convolution sum [n_points, out_fdim]
         return torch.sum(kernel_outputs, dim=0)

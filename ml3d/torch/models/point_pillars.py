@@ -30,6 +30,7 @@ import numpy as np
 import os
 
 from open3d.ml.torch.ops import voxelize, ragged_to_dense
+# from ml3d.torch.ops import voxelize, ragged_to_dense
 
 from .base_model_objdet import BaseModel
 
@@ -102,7 +103,8 @@ class PointPillars(BaseModel):
 
     def extract_feats(self, points):
         """Extract features from points."""
-        voxels, num_points, coors = self.voxelize(points)
+        # voxels, num_points, coors = self.voxelize(points)
+        return self.voxelize(points)
         voxel_features = self.voxel_encoder(voxels, num_points, coors)
         batch_size = coors[-1, 0].item() + 1
         x = self.middle_encoder(voxel_features, coors, batch_size)
@@ -115,10 +117,12 @@ class PointPillars(BaseModel):
         """Apply hard voxelization to points."""
         voxels, coors, num_points = [], [], []
         for res in points:
+            return self.voxel_layer(res)
             res_voxels, res_coors, res_num_points = self.voxel_layer(res)
             voxels.append(res_voxels)
             coors.append(res_coors)
             num_points.append(res_num_points)
+        return voxels
         voxels = torch.cat(voxels, dim=0)
         num_points = torch.cat(num_points, dim=0)
         coors_batch = []
@@ -131,6 +135,7 @@ class PointPillars(BaseModel):
     def forward(self, inputs):
         inputs = inputs.point
         x = self.extract_feats(inputs)
+        return x
         outs = self.bbox_head(x)
         return outs
 
@@ -381,10 +386,19 @@ class PointPillarsVoxelization(torch.nn.Module):
 
         points = points_feats[:, :3]
 
+        print(points.shape)
+        print(torch.LongTensor([0, points.shape[0]]).to(points.device))
+        print(self.voxel_size, self.points_range_min,
+              self.points_range_max, self.max_num_points, max_voxels)
         ans = voxelize(points,
                        torch.LongTensor([0, points.shape[0]]).to(points.device),
                        self.voxel_size, self.points_range_min,
                        self.points_range_max, self.max_num_points, max_voxels)
+        print(ans.voxel_point_indices.shape)
+        print(ans.voxel_point_row_splits.shape)
+        print(ans.voxel_coords.shape)
+        exit()
+        return ans
 
         # prepend row with zeros which maps to index 0 which maps to void points.
         feats = torch.cat(
