@@ -71,9 +71,7 @@ class OpenVINOModel:
         self.base_model.extract_feats = lambda *args: pointpillars_extract_feats(self.base_model, tensors['x'])
 
         torch.onnx.export(self.base_model, tensors, buf, input_names=input_names)
-        torch.onnx.export(self.base_model, tensors, 'pp.onnx', input_names=input_names)
-        # torch.onnx.export(self.export_model, inputs, 'kpconv.onnx', input_names=input_names, opset_version=11)
-        # self.base_model.forward = origin_forward
+        self.base_model.forward = origin_forward
 
         net = self.ie.read_network(buf.getvalue(), b'', init_from_buffer=True)
         self.exec_net = self.ie.load_network(net, 'CPU')
@@ -82,41 +80,23 @@ class OpenVINOModel:
         if self.exec_net is None:
             self._read_torch_model(inputs)
 
-        # inputs = self._get_inputs(inputs)
-        # voxels, num_points, coors = self.base_model.voxelize(inputs.point)
-        # print(voxels.shape)
-        # print(num_points.shape)
-        # print(coors.shape)
-        # exit()
-        # print(tensors)
+        inputs = self._get_inputs(inputs)
 
-        # tensors = {}
-        # for name, tensor in inputs.items():
-        #     if name == 'labels':
-        #         continue
-        #     if isinstance(tensor, list):
-        #         for i in range(len(tensor)):
-        #             if tensor[i].nelement() > 0:
-        #                 tensors[name + str(i)] = tensor[i].detach().numpy()
-        #     else:
-        #         if tensor.nelement() > 0:
-        #             tensors[name] = tensor.detach().numpy()
+        tensors = {}
+        for name, tensor in inputs.items():
+            if name == 'labels':
+                continue
+            if isinstance(tensor, list):
+                for i in range(len(tensor)):
+                    if tensor[i].nelement() > 0:
+                        tensors[name + str(i)] = tensor[i].detach().numpy()
+            else:
+                if tensor.nelement() > 0:
+                    tensors[name] = tensor.detach().numpy()
 
-        # print(tensors)
-        voxels, num_points, coors = self.base_model.voxelize(inputs.point)
-        voxel_features = self.base_model.voxel_encoder(voxels, num_points, coors)
-        batch_size = coors[-1, 0].item() + 1
-        x = self.base_model.middle_encoder(voxel_features, coors, batch_size)
-
-        output = self.exec_net.infer({'x': x.detach().numpy()})
+        output = self.exec_net.infer(tensors)
         output = next(iter(output.values()))
-
         return torch.tensor(output)
 
     def __call__(self, inputs):
         return self.forward(inputs)
-
-
-# class OVPointPillars(OpenVINOModel):
-#     def __init__(self, base_model):
-#         super().__init__(base_model)

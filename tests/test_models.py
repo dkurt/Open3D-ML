@@ -212,14 +212,13 @@ def test_pointpillars_torch():
     data = batcher.collate_fn([{'data': data, 'attr': {'split': 'test'}}])
 
     net.eval()
-    #     boxes = net.inference_end(results, data)
-    #     assert type(boxes) == list
+    with torch.no_grad():
+        results = net(data)
+        boxes = net.inference_end(results, data)
+        assert type(boxes) == list
 
     ov_net = ml3d.models.OpenVINOModel(net)
     ov_results = ov_net(data)
-
-    with torch.no_grad():
-        results = net(data)
 
     # assert ov_results.shape == results.shape
     # for res in results:
@@ -247,9 +246,5 @@ def test_pointpillars_torch():
 
 #     results = net(data, training=False)
 #     boxes = net.inference_end(results, data)
-
-#     ov_net = ml3d.models.OpenVINOModel(net)
-#     ov_results = ov_net(data)
-
 
 #     assert type(boxes) == list
