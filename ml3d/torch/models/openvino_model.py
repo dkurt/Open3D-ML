@@ -15,11 +15,6 @@ def pointpillars_extract_feats(self, x):
     x = self.neck(x)
     return x
 
-def pointpillars_forward(self, inputs):
-    x = self.extract_feats(inputs)
-    outs = self.bbox_head(x)
-    return outs
-
 
 class OpenVINOModel:
 
@@ -63,8 +58,8 @@ class OpenVINOModel:
         input_names = self._get_input_names(tensors)
 
         # Forward origin inputs instead of export <tensors>
-        # origin_forward = self.base_model.forward
-        # self.base_model.forward = lambda x: origin_forward(inputs)
+        origin_forward = self.base_model.forward
+        self.base_model.forward = lambda x: origin_forward(inputs)
 
         buf = io.BytesIO()
 
@@ -73,8 +68,7 @@ class OpenVINOModel:
         batch_size = coors[-1, 0].item() + 1
         x = self.base_model.middle_encoder(voxel_features, coors, batch_size)
 
-        self.base_model.extract_feats = lambda *args: pointpillars_extract_feats(self.base_model, *args)
-        self.base_model.forward = lambda *args: pointpillars_forward(self.base_model, *args)
+        self.base_model.extract_feats = lambda *args: pointpillars_extract_feats(self.base_model, x)
 
         torch.onnx.export(self.base_model, x, buf, input_names=input_names)
         torch.onnx.export(self.base_model, x, 'pp.onnx', input_names=input_names)
