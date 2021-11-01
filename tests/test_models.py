@@ -21,7 +21,6 @@ if gpus:
 
 def test_randlanet_torch():
     import open3d.ml.torch as ml3d
-    # import ml3d.torch as ml3d
 
     net = ml3d.models.RandLANet(num_points=5000, num_classes=10, dim_input=6)
     net.device = 'cpu'
@@ -67,7 +66,6 @@ def test_randlanet_torch():
 
 def test_randlanet_tf():
     import open3d.ml.tf as ml3d
-    # import ml3d.tf as ml3d
 
     net = ml3d.models.RandLANet(num_points=5000,
                                 num_classes=10,
@@ -107,7 +105,6 @@ def test_randlanet_tf():
 
 def test_kpconv_torch():
     import open3d.ml.torch as ml3d
-    # import ml3d.torch as ml3d
 
     net = ml3d.models.KPFCNN(lbl_values=[0, 1, 2, 3, 4, 5],
                              num_classes=4,
@@ -144,7 +141,6 @@ def test_kpconv_torch():
 
 def test_kpconv_tf():
     import open3d.ml.tf as ml3d
-    # import ml3d.tf as ml3d
 
     np.random.seed(32)
 
@@ -190,19 +186,15 @@ def test_kpconv_tf():
 
 
 def test_pointpillars_torch():
-    # import open3d.ml.torch as ml3d
-    # from open3d.ml.utils import Config
-    import ml3d.torch as ml3d
-    # import ml3d as _ml3d
-    from ml3d.utils import Config
+    import open3d.ml.torch as ml3d
+    from open3d.ml.utils import Config
 
     cfg_path = base + '/ml3d/configs/pointpillars_kitti.yml'
     cfg = Config.load_from_file(cfg_path)
 
     net = ml3d.models.PointPillars(**cfg.model, device='cpu')
 
-    batcher = ml3d.dataloaders.concat_batcher.ConcatBatcher(
-        'cpu', model='PointPillars')
+    batcher = ml3d.dataloaders.ConcatBatcher('cpu', model='PointPillars')
     data = {
         'point': np.array(np.random.random((10000, 4)), dtype=np.float32),
         'calib': None,
@@ -226,21 +218,21 @@ def test_pointpillars_torch():
         assert torch.max(torch.abs(out - ref)) < 1e-5
 
 
-# def test_pointpillars_tf():
-#     import open3d.ml.tf as ml3d
-#     from open3d.ml.utils import Config
+def test_pointpillars_tf():
+    import open3d.ml.tf as ml3d
+    from open3d.ml.utils import Config
 
-#     cfg_path = base + '/ml3d/configs/pointpillars_kitti.yml'
-#     cfg = Config.load_from_file(cfg_path)
+    cfg_path = base + '/ml3d/configs/pointpillars_kitti.yml'
+    cfg = Config.load_from_file(cfg_path)
 
-#     net = ml3d.models.PointPillars(**cfg.model, device='cpu')
+    net = ml3d.models.PointPillars(**cfg.model, device='cpu')
 
-#     data = [
-#         tf.constant(np.random.random((10000, 4)), dtype=tf.float32), None, None,
-#         [tf.constant(np.stack([np.eye(4), np.eye(4)], axis=0))]
-#     ]
+    data = [
+        tf.constant(np.random.random((10000, 4)), dtype=tf.float32), None, None,
+        [tf.constant(np.stack([np.eye(4), np.eye(4)], axis=0))]
+    ]
 
-#     results = net(data, training=False)
-#     boxes = net.inference_end(results, data)
+    results = net(data, training=False)
+    boxes = net.inference_end(results, data)
 
-#     assert type(boxes) == list
+    assert type(boxes) == list

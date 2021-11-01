@@ -1,9 +1,6 @@
 import io
-from collections import namedtuple
 
-import numpy as np
 import torch
-import torch.nn as nn
 
 from openvino.inference_engine import IECore
 
