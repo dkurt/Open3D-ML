@@ -4,8 +4,6 @@ import subprocess
 
 import numpy as np
 
-import tensorflow as tf
-
 import mo_tf
 from openvino.inference_engine import IECore
 

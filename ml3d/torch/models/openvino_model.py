@@ -68,6 +68,7 @@ class OpenVINOModel:
             self.base_model, tensors[input_names[0]])
 
         buf = io.BytesIO()
+        self.base_model.eval()
         torch.onnx.export(self.base_model,
                           tensors,
                           buf,
@@ -105,3 +106,26 @@ class OpenVINOModel:
 
     def __call__(self, inputs):
         return self.forward(inputs)
+
+    def load_state_dict(self, *args):
+        self.base_model.load_state_dict(*args)
+
+    def eval(self):
+        pass
+
+    @property
+    def cfg(self):
+        return self.base_model.cfg
+
+    @property
+    def classes(self):
+        return self.base_model.classes
+
+    def inference_end(self, *args):
+        return self.base_model.inference_end(*args)
+
+    def preprocess(self, *args):
+        return self.base_model.preprocess(*args)
+
+    def transform(self, *args):
+        return self.base_model.transform(*args)
