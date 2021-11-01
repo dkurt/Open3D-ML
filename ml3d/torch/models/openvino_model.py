@@ -46,8 +46,13 @@ class OpenVINOModel:
                 'upsamples': inputs.upsamples,
             }
         elif isinstance(inputs, dataloaders.concat_batcher.ObjectDetectBatch):
+            voxels, num_points, coors = self.base_model.voxelize(inputs.point)
+            voxel_features = self.base_model.voxel_encoder(voxels, num_points, coors)
+            batch_size = coors[-1, 0].item() + 1
+            x = self.base_model.middle_encoder(voxel_features, coors, batch_size)
+
             inputs = {
-                'point': inputs.point,
+                'x': x,
             }
         elif not isinstance(inputs, dict):
             raise Exception(f"Unknown inputs type: {inputs.__class__}")
@@ -63,15 +68,10 @@ class OpenVINOModel:
 
         buf = io.BytesIO()
 
-        voxels, num_points, coors = self.base_model.voxelize(inputs.point)
-        voxel_features = self.base_model.voxel_encoder(voxels, num_points, coors)
-        batch_size = coors[-1, 0].item() + 1
-        x = self.base_model.middle_encoder(voxel_features, coors, batch_size)
+        self.base_model.extract_feats = lambda *args: pointpillars_extract_feats(self.base_model, tensors['x'])
 
-        self.base_model.extract_feats = lambda *args: pointpillars_extract_feats(self.base_model, x)
-
-        torch.onnx.export(self.base_model, x, buf, input_names=input_names)
-        torch.onnx.export(self.base_model, x, 'pp.onnx', input_names=input_names)
+        torch.onnx.export(self.base_model, tensors, buf, input_names=input_names)
+        torch.onnx.export(self.base_model, tensors, 'pp.onnx', input_names=input_names)
         # torch.onnx.export(self.export_model, inputs, 'kpconv.onnx', input_names=input_names, opset_version=11)
         # self.base_model.forward = origin_forward
 
@@ -108,7 +108,7 @@ class OpenVINOModel:
         batch_size = coors[-1, 0].item() + 1
         x = self.base_model.middle_encoder(voxel_features, coors, batch_size)
 
-        output = self.exec_net.infer({'point0': x.detach().numpy()})
+        output = self.exec_net.infer({'x': x.detach().numpy()})
         output = next(iter(output.values()))
 
         return torch.tensor(output)
