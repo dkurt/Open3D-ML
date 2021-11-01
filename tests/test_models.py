@@ -189,30 +189,42 @@ def test_kpconv_tf():
     assert np.max(np.abs(ov_out - out)) < 1e-5
 
 
-# def test_pointpillars_torch():
-#     import open3d.ml.torch as ml3d
-#     from open3d.ml.utils import Config
+def test_pointpillars_torch():
+    # import open3d.ml.torch as ml3d
+    # from open3d.ml.utils import Config
+    import ml3d.torch as ml3d
+    # import ml3d as _ml3d
+    from ml3d.utils import Config
 
-#     cfg_path = base + '/ml3d/configs/pointpillars_kitti.yml'
-#     cfg = Config.load_from_file(cfg_path)
+    cfg_path = base + '/ml3d/configs/pointpillars_kitti.yml'
+    cfg = Config.load_from_file(cfg_path)
 
-#     net = ml3d.models.PointPillars(**cfg.model, device='cpu')
+    net = ml3d.models.PointPillars(**cfg.model, device='cpu')
 
-#     batcher = ml3d.dataloaders.ConcatBatcher('cpu', model='PointPillars')
-#     data = {
-#         'point': np.array(np.random.random((10000, 4)), dtype=np.float32),
-#         'calib': None,
-#         'bounding_boxes': [],
-#     }
-#     data = net.preprocess(data, {'split': 'test'})
-#     data = net.transform(data, {'split': 'test'})
-#     data = batcher.collate_fn([{'data': data, 'attr': {'split': 'test'}}])
+    batcher = ml3d.dataloaders.concat_batcher.ConcatBatcher(
+        'cpu', model='PointPillars')
+    data = {
+        'point': np.array(np.random.random((10000, 4)), dtype=np.float32),
+        'calib': None,
+        'bounding_boxes': [],
+    }
+    data = net.preprocess(data, {'split': 'test'})
+    data = net.transform(data, {'split': 'test'})
+    data = batcher.collate_fn([{'data': data, 'attr': {'split': 'test'}}])
 
-#     net.eval()
-#     with torch.no_grad():
-#         results = net(data)
-#         boxes = net.inference_end(results, data)
-#         assert type(boxes) == list
+    net.eval()
+    with torch.no_grad():
+        results = net(data)
+        boxes = net.inference_end(results, data)
+        assert type(boxes) == list
+
+    ov_net = ml3d.models.OpenVINOModel(net)
+    ov_results = ov_net(data)
+
+    for out, ref in zip(ov_results, results):
+        assert out.shape == ref.shape
+        assert torch.max(torch.abs(out - ref)) < 1e-5
+
 
 # def test_pointpillars_tf():
 #     import open3d.ml.tf as ml3d
