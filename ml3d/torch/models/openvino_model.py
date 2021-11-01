@@ -47,9 +47,11 @@ class OpenVINOModel:
             }
         elif isinstance(inputs, dataloaders.concat_batcher.ObjectDetectBatch):
             voxels, num_points, coors = self.base_model.voxelize(inputs.point)
-            voxel_features = self.base_model.voxel_encoder(voxels, num_points, coors)
+            voxel_features = self.base_model.voxel_encoder(
+                voxels, num_points, coors)
             batch_size = coors[-1, 0].item() + 1
-            x = self.base_model.middle_encoder(voxel_features, coors, batch_size)
+            x = self.base_model.middle_encoder(voxel_features, coors,
+                                               batch_size)
 
             inputs = {
                 'x': x,
@@ -65,12 +67,14 @@ class OpenVINOModel:
         # Forward origin inputs instead of export <tensors>
         origin_forward = self.base_model.forward
         self.base_model.forward = lambda x: origin_forward(inputs)
+        self.base_model.extract_feats = lambda *args: pointpillars_extract_feats(
+            self.base_model, tensors[input_names[0]])
 
         buf = io.BytesIO()
-
-        self.base_model.extract_feats = lambda *args: pointpillars_extract_feats(self.base_model, tensors['x'])
-
-        torch.onnx.export(self.base_model, tensors, buf, input_names=input_names)
+        torch.onnx.export(self.base_model,
+                          tensors,
+                          buf,
+                          input_names=input_names)
         self.base_model.forward = origin_forward
 
         net = self.ie.read_network(buf.getvalue(), b'', init_from_buffer=True)
@@ -95,8 +99,12 @@ class OpenVINOModel:
                     tensors[name] = tensor.detach().numpy()
 
         output = self.exec_net.infer(tensors)
-        output = next(iter(output.values()))
-        return torch.tensor(output)
+
+        if len(output) == 1:
+            output = next(iter(output.values()))
+            return torch.tensor(output)
+        else:
+            return tuple([torch.tensor(out) for out in output.values()])
 
     def __call__(self, inputs):
         return self.forward(inputs)

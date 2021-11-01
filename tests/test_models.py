@@ -201,7 +201,8 @@ def test_pointpillars_torch():
 
     net = ml3d.models.PointPillars(**cfg.model, device='cpu')
 
-    batcher = ml3d.dataloaders.concat_batcher.ConcatBatcher('cpu', model='PointPillars')
+    batcher = ml3d.dataloaders.concat_batcher.ConcatBatcher(
+        'cpu', model='PointPillars')
     data = {
         'point': np.array(np.random.random((10000, 4)), dtype=np.float32),
         'calib': None,
@@ -220,19 +221,14 @@ def test_pointpillars_torch():
     ov_net = ml3d.models.OpenVINOModel(net)
     ov_results = ov_net(data)
 
-    # assert ov_results.shape == results.shape
-    # for res in results:
-    #     print(res.shape, ov_results.shape)
-    #     print(torch.max(torch.abs(ov_results - res)))
-    #     break
-    assert torch.max(torch.abs(ov_results - results[0])) < 1e-5
+    for out, ref in zip(ov_results, results):
+        assert out.shape == ref.shape
+        assert torch.max(torch.abs(out - ref)) < 1e-5
 
 
 # def test_pointpillars_tf():
-#     # import open3d.ml.tf as ml3d
-#     # from open3d.ml.utils import Config
-#     import ml3d.tf as ml3d
-#     from ml3d.utils import Config
+#     import open3d.ml.tf as ml3d
+#     from open3d.ml.utils import Config
 
 #     cfg_path = base + '/ml3d/configs/pointpillars_kitti.yml'
 #     cfg = Config.load_from_file(cfg_path)
