@@ -174,17 +174,17 @@ class SemanticSegmentation(BasePipeline):
             'predict_scores': self.ori_test_probs.pop()
         }
 
-        metric = SemSegMetric()
-        metric.update(torch.tensor(inference_result['predict_scores']),
-                      torch.tensor(data['label']))
-        log.info(f"Accuracy : {metric.acc()}")
-        log.info(f"IoU : {metric.iou()}")
+        # metric = SemSegMetric()
+        # metric.update(torch.tensor(inference_result['predict_scores']),
+        #               torch.tensor(data['label']))
+        # log.info(f"Accuracy : {metric.acc()}")
+        # log.info(f"IoU : {metric.iou()}")
 
         return inference_result
 
     """
     Run the test using the data passed.
-    
+
     """
 
     def run_test(self):
@@ -250,7 +250,7 @@ class SemanticSegmentation(BasePipeline):
 
     """
     Update tests using sampler, inputs, and results.
-    
+
     """
 
     def update_tests(self, sampler, inputs, results):
@@ -298,7 +298,7 @@ class SemanticSegmentation(BasePipeline):
 
     """
     Run the training on the self model.
-    
+
     """
 
     def run_train(self):
@@ -444,7 +444,7 @@ class SemanticSegmentation(BasePipeline):
 
     """
     Get the batcher to be used based on the device and split.
-    
+
     """
 
     def get_batcher(self, device, split='training'):
@@ -461,7 +461,7 @@ class SemanticSegmentation(BasePipeline):
 
     """
     Save logs from the training and send results to TensorBoard.
-    
+
     """
 
     def save_logs(self, writer, epoch):
@@ -528,7 +528,7 @@ class SemanticSegmentation(BasePipeline):
 
     """
     Save a checkpoint at the passed epoch.
-    
+
     """
 
     def save_ckpt(self, epoch):
@@ -544,7 +544,7 @@ class SemanticSegmentation(BasePipeline):
 
     """
     Save experiment configuration with Torch summary.
-    
+
     """
 
     def save_config(self, writer):

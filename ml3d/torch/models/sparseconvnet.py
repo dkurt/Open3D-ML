@@ -10,6 +10,45 @@ from open3d.ml.torch.layers import SparseConv, SparseConvTranspose
 from open3d.ml.torch.ops import voxelize, reduce_subarrays_sum
 
 
+class SparseConvONNX(SparseConv):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        class SparseConvFunc(torch.autograd.Function):
+            @staticmethod
+            def symbolic(g, inp_features, inp_positions, out_positions, voxel_size):
+                return g.op('SparseConv', inp_features, inp_positions, out_positions)
+
+            @staticmethod
+            def forward(cls, *args, **kwargs):
+                return super(SparseConvONNX, self).__call__(*args, **kwargs)
+
+        self.func = SparseConvFunc()
+
+    def __call__(self, *args, **kwargs):
+        return self.func.apply(*args, **kwargs)
+
+
+class SparseConvTransposeONNX(SparseConvTranspose):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        class SparseConvFunc(torch.autograd.Function):
+            @staticmethod
+            def symbolic(g, inp_features, inp_positions, out_positions, voxel_size):
+                return g.op('SparseConvTranspose', inp_features, inp_positions, out_positions)
+
+            @staticmethod
+            def forward(cls, *args, **kwargs):
+                return super(SparseConvTransposeONNX, self).__call__(*args, **kwargs)
+
+        self.func = SparseConvFunc()
+
+    def __call__(self, *args, **kwargs):
+        return self.func.apply(*args, **kwargs)
+
+
+
 class SparseConvUnet(BaseModel):
     """Semantic Segmentation model.
 
@@ -70,7 +109,7 @@ class SparseConvUnet(BaseModel):
         self.linear = LinearBlock(multiplier, num_classes)
         self.output_layer = OutputLayer()
 
-    def forward(self, inputs):
+    def extract_feats123(self, inputs):
         pos_list = []
         feat_list = []
         index_map_list = []
@@ -83,6 +122,10 @@ class SparseConvUnet(BaseModel):
             feat_list.append(feat)
             index_map_list.append(index_map)
 
+        return pos_list, feat_list, index_map_list
+
+    def forward(self, inputs):
+        pos_list, feat_list, index_map_list = self.extract_feats123(inputs)
         feat_list = self.sub_sparse_conv(feat_list, pos_list, voxel_size=1.0)
         feat_list = self.unet(pos_list, feat_list)
         feat_list = self.batch_norm(feat_list)
@@ -127,7 +170,10 @@ class SparseConvUnet(BaseModel):
 
         points = points[idxs]
         feat = feat[idxs]
-        labels = labels[idxs]
+        # print(idxs)
+        # print("~~~~~~~~~~~~~~~~~~~~")
+        # print(labels)
+        # labels = labels[idxs]
 
         points = (points.astype(np.int32) + 0.5).astype(
             np.float32)  # Move points to voxel center.
@@ -186,7 +232,7 @@ class SparseConvUnet(BaseModel):
             results: Output of the model.
             inputs: Input of the model.
             device: device(cpu or cuda).
-        
+
         Returns:
             Returns loss, labels and scores.
         """
@@ -347,12 +393,12 @@ class SubmanifoldSparseConv(nn.Module):
                 offset = 0.5
 
         offset = torch.full((3,), offset, dtype=torch.float32)
-        self.net = SparseConv(in_channels=in_channels,
-                              filters=filters,
-                              kernel_size=kernel_size,
-                              use_bias=use_bias,
-                              offset=offset,
-                              normalize=normalize)
+        self.net = SparseConvONNX(in_channels=in_channels,
+                                  filters=filters,
+                                  kernel_size=kernel_size,
+                                  use_bias=use_bias,
+                                  offset=offset,
+                                  normalize=normalize)
 
     def forward(self,
                 features_list,
@@ -383,7 +429,7 @@ def calculate_grid(in_positions):
 
     out_pos = out_pos + filter
     out_pos = out_pos[out_pos.min(1).values >= 0]
-    out_pos = out_pos[(~((out_pos.long() % 2).bool()).any(1))]
+    out_pos = out_pos[~((out_pos.long() % 2).bool()).max(1)[0]]
     out_pos = torch.unique(out_pos, dim=0)
 
     return out_pos + 0.5
@@ -407,12 +453,12 @@ class Convolution(nn.Module):
                 offset = -0.5
 
         offset = torch.full((3,), offset, dtype=torch.float32)
-        self.net = SparseConv(in_channels=in_channels,
-                              filters=filters,
-                              kernel_size=kernel_size,
-                              use_bias=use_bias,
-                              offset=offset,
-                              normalize=normalize)
+        self.net = SparseConvONNX(in_channels=in_channels,
+                                  filters=filters,
+                                  kernel_size=kernel_size,
+                                  use_bias=use_bias,
+                                  offset=offset,
+                                  normalize=normalize)
 
     def forward(self, features_list, in_positions_list, voxel_size=1.0):
         out_positions_list = []
@@ -450,7 +496,7 @@ class DeConvolution(nn.Module):
                 offset = -0.5
 
         offset = torch.full((3,), offset, dtype=torch.float32)
-        self.net = SparseConvTranspose(in_channels=in_channels,
+        self.net = SparseConvTransposeONNX(in_channels=in_channels,
                                        filters=filters,
                                        kernel_size=kernel_size,
                                        use_bias=use_bias,
@@ -542,9 +588,10 @@ class ResidualBlock(nn.Module):
         feat_list = self.batch_norm1(feat_list)
         feat_list = self.relu1(feat_list)
         feat_list = self.sub_sparse_conv1(feat_list, pos_list)
-        feat_list = self.batch_norm2(feat_list)
-        feat_list = self.relu2(feat_list)
-        out2 = self.sub_sparse_conv2(feat_list, pos_list)
+        return feat_list
+        # feat_list = self.batch_norm2(feat_list)
+        # feat_list = self.relu2(feat_list)
+        # out2 = self.sub_sparse_conv2(feat_list, pos_list)
 
         return [a + b for a, b in zip(out1, out2)]
 

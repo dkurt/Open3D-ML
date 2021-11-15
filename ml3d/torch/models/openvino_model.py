@@ -6,11 +6,22 @@ from openvino.inference_engine import IECore
 
 from .. import dataloaders
 
-
 def pointpillars_extract_feats(self, x):
     x = self.backbone(x)
     x = self.neck(x)
     return x
+
+
+def sparseconvnet_forward(self, pos_list, feat_list, index_map_list):
+    return pos_list, feat_list, index_map_list
+    # feat_list = self.sub_sparse_conv(feat_list, pos_list, voxel_size=1.0)
+    # feat_list = self.unet(pos_list, feat_list)
+    # feat_list = self.batch_norm(feat_list)
+    # feat_list = self.relu(feat_list)
+    # feat_list = self.linear(feat_list)
+    # output = self.output_layer(feat_list, index_map_list)
+
+    # return output
 
 
 class OpenVINOModel:
@@ -53,6 +64,24 @@ class OpenVINOModel:
             inputs = {
                 'x': x,
             }
+        elif isinstance(inputs, dataloaders.concat_batcher.SparseConvUnetBatch):
+            pos_list = []
+            feat_list = []
+            index_map_list = []
+
+            for i in range(len(inputs.batch_lengths)):
+                pos = inputs.point[i]
+                feat = inputs.feat[i]
+                feat, pos, index_map = self.base_model.input_layer(feat, pos)
+                pos_list.append(pos)
+                feat_list.append(feat)
+                index_map_list.append(torch.tensor(index_map).long())
+
+            inputs = {
+                'pos_list': pos_list,
+                'feat_list': feat_list,
+                'index_map_list': index_map_list,
+            }
         elif not isinstance(inputs, dict):
             raise Exception(f"Unknown inputs type: {inputs.__class__}")
         return inputs
@@ -64,15 +93,24 @@ class OpenVINOModel:
         # Forward origin inputs instead of export <tensors>
         origin_forward = self.base_model.forward
         self.base_model.forward = lambda x: origin_forward(inputs)
-        self.base_model.extract_feats = lambda *args: pointpillars_extract_feats(
-            self.base_model, tensors[input_names[0]])
+        # self.base_model.extract_feats = lambda *args: pointpillars_extract_feats(
+        #     self.base_model, tensors[input_names[0]])
+        self.base_model.extract_feats123 = lambda *args: sparseconvnet_forward(
+            self.base_model, tensors["pos_list"], tensors["feat_list"], tensors["index_map_list"])
+
 
         buf = io.BytesIO()
         self.base_model.eval()
-        torch.onnx.export(self.base_model,
-                          tensors,
-                          buf,
-                          input_names=input_names)
+
+        with torch.no_grad():
+            torch.onnx.export(self.base_model,
+                            tensors,
+                            'model.onnx',
+                            input_names=input_names,
+                            opset_version=11,
+                            enable_onnx_checker=False)
+        print("finish")
+        exit()
         self.base_model.forward = origin_forward
 
         net = self.ie.read_network(buf.getvalue(), b'', init_from_buffer=True)
@@ -111,6 +149,9 @@ class OpenVINOModel:
         self.base_model.load_state_dict(*args)
 
     def eval(self):
+        pass
+
+    def to(self, device):
         pass
 
     @property
