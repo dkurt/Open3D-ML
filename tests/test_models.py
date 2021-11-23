@@ -97,10 +97,10 @@ def test_randlanet_tf():
 
     assert out.shape == (1, 5000, 10)
 
-    # ov_net = ml3d.models.OpenVINOModel(net)
-    # ov_out = ov_net(inputs)
-    # assert ov_out.shape == out.shape
-    # assert np.max(np.abs(ov_out - out)) < 1e-6
+    ov_net = ml3d.models.OpenVINOModel(net)
+    ov_out = ov_net(inputs)
+    assert ov_out.shape == out.shape
+    assert np.max(np.abs(ov_out - out)) < 1e-6
 
 
 def test_kpconv_torch():
@@ -179,10 +179,10 @@ def test_kpconv_tf():
 
     assert out.shape == (1000, 5)
 
-    # ov_net = ml3d.models.OpenVINOModel(net)
-    # ov_out = ov_net(inputs)
-    # assert ov_out.shape == out.shape
-    # assert np.max(np.abs(ov_out - out)) < 1e-5
+    ov_net = ml3d.models.OpenVINOModel(net)
+    ov_out = ov_net(inputs)
+    assert ov_out.shape == out.shape
+    assert np.max(np.abs(ov_out - out)) < 1e-5
 
 
 def test_pointpillars_torch():
