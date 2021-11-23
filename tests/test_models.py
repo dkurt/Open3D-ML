@@ -133,10 +133,10 @@ def test_kpconv_torch():
 
     assert out.shape[1] == 5
 
-    # ov_net = ml3d.models.OpenVINOModel(net)
-    # ov_out = ov_net(inputs['data']).detach().numpy()
-    # assert ov_out.shape == out.shape
-    # assert np.max(np.abs(ov_out - out)) < 1e-7
+    ov_net = ml3d.models.OpenVINOModel(net)
+    ov_out = ov_net(inputs['data']).detach().numpy()
+    assert ov_out.shape == out.shape
+    assert np.max(np.abs(ov_out - out)) < 1e-7
 
 
 def test_kpconv_tf():
